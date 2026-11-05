@@ -216,6 +216,14 @@ fun PlayerScreen(
     var lastVolume by remember { mutableIntStateOf(if (initialVol > 0) initialVol else (audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) * 0.3f).toInt()) }
 
     val displayRefreshHost = activity as? com.stremio.mobile.core.display.DisplayRefreshHost
+    val pip = (activity as? com.stremio.mobile.core.display.PictureInPictureHost)?.pictureInPicture
+    val inPictureInPicture = pip?.isInPictureInPicture?.value == true
+    LaunchedEffect(pip, isPlaying, runtimeState.videoWidth, runtimeState.videoHeight) {
+        pip?.setEligible(isPlaying, runtimeState.videoWidth, runtimeState.videoHeight)
+    }
+    DisposableEffect(pip) {
+        onDispose { pip?.setEligible(false) }
+    }
     // Hand display-mode control to playback while the player is open; restore the UI preference after.
     DisposableEffect(displayRefreshHost) {
         displayRefreshHost?.displayRefresh?.setPlayback(active = true, modeId = 0)
@@ -253,6 +261,14 @@ fun PlayerScreen(
     var showSubtitleDialog by remember { mutableStateOf(false) }
     var audioDefaultApplied by remember(activeUri, player) { mutableStateOf(false) }
     var subtitleDefaultApplied by remember(activeUri, player) { mutableStateOf(false) }
+
+    LaunchedEffect(inPictureInPicture) {
+        if (inPictureInPicture) {
+            showControls = false
+            showAudioDialog = false
+            showSubtitleDialog = false
+        }
+    }
 
     // Stats Panel
     var showStatsPanel by remember { mutableStateOf(false) }
@@ -669,6 +685,9 @@ fun PlayerScreen(
             onDispose { onDetachView() }
         }
 
+        // In picture-in-picture only the video is shown.
+        if (!inPictureInPicture) {
+
         // Tap / swipe gesture layer. Detection + the transient HUDs live in PlayerGestures.kt;
         // player-owned actions are routed back through callbacks so the gesture layer never
         // touches showControls directly (VLC-style decoupling).
@@ -924,6 +943,7 @@ fun PlayerScreen(
                     spoilerBlurLevel = enhancedSettings.spoilerBlurLevel,
                 )
             }
+        }
         }
     }
 }

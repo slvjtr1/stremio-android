@@ -18,12 +18,15 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.stremio.mobile.auth.FacebookLoginBridge
 import com.stremio.mobile.core.display.DisplayRefreshController
 import com.stremio.mobile.core.display.DisplayRefreshHost
+import com.stremio.mobile.core.display.PictureInPictureController
+import com.stremio.mobile.core.display.PictureInPictureHost
 import kotlinx.coroutines.launch
 import com.stremio.mobile.presentation.screens.StremioMobileApp
 import com.stremio.mobile.presentation.viewmodel.MainViewModel
 
-class MainActivity : ComponentActivity(), DisplayRefreshHost {
+class MainActivity : ComponentActivity(), DisplayRefreshHost, PictureInPictureHost {
     override val displayRefresh by lazy { DisplayRefreshController(this) }
+    override val pictureInPicture by lazy { PictureInPictureController(this) }
 
     private val notificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -83,6 +86,19 @@ class MainActivity : ComponentActivity(), DisplayRefreshHost {
             return
         }
         super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        pictureInPicture.onUserLeaveHint()
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: android.content.res.Configuration,
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        pictureInPicture.onModeChanged(isInPictureInPictureMode)
     }
 
     override fun onResume() {
