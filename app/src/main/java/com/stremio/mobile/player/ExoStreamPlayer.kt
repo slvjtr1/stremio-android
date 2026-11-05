@@ -10,10 +10,12 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
+import androidx.media3.common.text.CueGroup
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
@@ -27,6 +29,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import com.stremio.mobile.player.subsync.ExoSubtitleController
+import com.stremio.mobile.player.subsync.SubtitleSyncStatus
+import com.stremio.mobile.player.subsync.SubtitleTimeMap
 import java.util.Locale
 
 class ExoStreamPlayer(
@@ -41,12 +46,28 @@ class ExoStreamPlayer(
 
     override val runtimeState: StateFlow<PlayerRuntimeState> = mutableRuntimeState
 
-    private val exoPlayer = run {
-        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+    private val dataSourceFactory = DefaultDataSource.Factory(
+        appContext,
+        DefaultHttpDataSource.Factory()
             .setConnectTimeoutMs(30_000)
             .setReadTimeoutMs(30_000)
-            .setAllowCrossProtocolRedirects(true)
-        val dataSourceFactory = DefaultDataSource.Factory(appContext, httpDataSourceFactory)
+            .setAllowCrossProtocolRedirects(true),
+    )
+
+    /**
+     * Renders subtitles with adjustable timing and runs automatic sync. Declared before the
+     * player because its audio tap is installed in the audio sink; the lambdas only touch
+     * [exoPlayer] once playback is running.
+     */
+    private val subtitleController: ExoSubtitleController = ExoSubtitleController(
+        context = appContext,
+        dataSourceFactory = dataSourceFactory,
+        scope = scope,
+        positionMs = { exoPlayer.currentPosition.coerceAtLeast(0L) },
+        isPlaying = { exoPlayer.isPlaying },
+    )
+
+    private val exoPlayer: ExoPlayer = run {
         val mediaSourceFactory = DefaultMediaSourceFactory(appContext)
             .setDataSourceFactory(dataSourceFactory)
 
@@ -80,6 +101,8 @@ class ExoStreamPlayer(
                     .setAudioCapabilities(audioCapabilities)
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    // Pass-through tap feeding the speech detector for automatic subtitle sync.
+                    .setAudioProcessors(arrayOf(TeeAudioProcessor(subtitleController.audioTap)))
                     .build()
             }
         }.setEnableDecoderFallback(true)
@@ -123,6 +146,27 @@ class ExoStreamPlayer(
 
         override fun onTracksChanged(tracks: Tracks) {
             publishState()
+            updateSubtitleSelection()
+        }
+
+        override fun onTrackSelectionParametersChanged(parameters: androidx.media3.common.TrackSelectionParameters) {
+            updateSubtitleSelection()
+        }
+
+        override fun onCues(cueGroup: CueGroup) {
+            subtitleController.onPlayerCues(cueGroup)
+        }
+
+        override fun onPositionDiscontinuity(
+            oldPosition: androidx.media3.common.Player.PositionInfo,
+            newPosition: androidx.media3.common.Player.PositionInfo,
+            reason: Int,
+        ) {
+            if (reason == androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK ||
+                reason == androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT
+            ) {
+                subtitleController.onSeek(newPosition.positionMs)
+            }
         }
 
         override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
@@ -148,6 +192,7 @@ class ExoStreamPlayer(
             resizeMode = playerView?.resizeMode ?: AspectRatioFrameLayout.RESIZE_MODE_FIT
             player = exoPlayer
             playerView = this
+            subtitleController.attachTo(overlayFrameLayout, subtitleView)
             applySubtitleStyleToView()
         }
     }
@@ -165,6 +210,7 @@ class ExoStreamPlayer(
         currentPreferredSubtitleLang = preferredSubtitleLang
 
         val mediaItem = buildMediaItem(uri, subtitles, preferredSubtitleLang)
+        subtitleController.onNewMedia(startPositionMs)
         exoPlayer.setMediaItem(mediaItem, startPositionMs)
         exoPlayer.prepare()
         publishState(error = null, ended = false)
@@ -196,6 +242,7 @@ class ExoStreamPlayer(
     }
 
     override fun seekTo(positionMs: Long) {
+        subtitleController.onSeek(positionMs)
         exoPlayer.seekTo(positionMs)
         publishState()
     }
@@ -239,7 +286,37 @@ class ExoStreamPlayer(
 
     override fun setSubtitleStyle(style: PlayerSubtitleStyle) {
         currentSubtitleStyle = style
+        subtitleController.setManualDelay(style.delayMs)
         applySubtitleStyleToView()
+    }
+
+    override val subtitleSyncStatus: StateFlow<SubtitleSyncStatus> get() = subtitleController.status
+
+    override val subtitleTimeMap: StateFlow<SubtitleTimeMap> get() = subtitleController.map
+
+    override fun setSubtitleSyncPreferences(autoSync: Boolean, driftCorrection: Boolean) {
+        subtitleController.setPreferences(autoSync, driftCorrection)
+    }
+
+    override fun resetSubtitleSync() = subtitleController.resetAutoSync()
+
+    /** Routes the selected text track to file-based or embedded rendering. */
+    private fun updateSubtitleSelection() {
+        if (exoPlayer.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)) {
+            subtitleController.onSubtitlesDisabled()
+            return
+        }
+        for (group in exoPlayer.currentTracks.groups) {
+            if (group.type != C.TRACK_TYPE_TEXT) continue
+            for (i in 0 until group.length) {
+                if (!group.isTrackSelected(i)) continue
+                val format = group.getTrackFormat(i)
+                val external = findExternalSubtitle(format.id, group.mediaTrackGroup.id, format.label, format.language)
+                if (external != null) subtitleController.selectExternal(external.id, external.url) else subtitleController.selectEmbedded()
+                return
+            }
+        }
+        subtitleController.onSubtitlesDisabled()
     }
 
     override fun addExternalSubtitleTracks(tracks: List<ExternalSubtitle>) {
@@ -266,6 +343,7 @@ class ExoStreamPlayer(
     }
 
     override fun release() {
+        subtitleController.release()
         scope.cancel()
         playerView?.player = null
         playerView = null
@@ -275,7 +353,7 @@ class ExoStreamPlayer(
     }
 
     private fun applySubtitleStyleToView() {
-        playerView?.subtitleView?.let { subView ->
+        subtitleController.view.let { subView ->
             val style = currentSubtitleStyle
             subView.setApplyEmbeddedFontSizes(false)
             subView.setApplyEmbeddedStyles(false)
