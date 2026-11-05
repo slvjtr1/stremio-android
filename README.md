@@ -62,6 +62,8 @@ The Rust stream server (`libstream_server.so`) is built by the release workflow.
 
 Release builds are unsigned unless these Gradle properties or environment variables are set: `ANDROID_KEYSTORE_FILE`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. The `release-apk.yml` workflow expects the same values as repository secrets (`ANDROID_RELEASE_KEYSTORE_BASE64` for the keystore) and publishes split APKs plus SHA-256 checksums to GitHub Releases.
 
+Official releases are signed with the Stremio Enhanced key, SHA-256 certificate fingerprint `92:A1:87:88:DB:C8:91:5E:5B:94:7A:AE:21:D6:92:31:71:D6:56:EA:87:98:C4:9A:15:22:2F:9C:1E:CF:91:56`. Check it with `apksigner verify --print-certs`.
+
 The application id is `io.github.slvjtr1.stremioenhanced`, so it installs next to other Stremio clients.
 
 ## Privacy
@@ -82,6 +84,10 @@ stream-server/             Rust streaming server — submodule
 ```
 
 Third-party components and their licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## License
+
+Changes made in Stremio Enhanced are released under the [MIT License](LICENSE). The upstream project this fork is based on does not publish a license, so its original code is not covered by that grant. Bundled components keep their own licenses.
 
 ## Disclaimer
 
