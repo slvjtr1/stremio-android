@@ -196,7 +196,7 @@ fun StreamsSheet(
                 // Episode list filtered by selected season
                 val filteredEpisodes = state.episodes.filter {
                     state.selectedSeason == null || it.season == state.selectedSeason
-                }
+                }.distinctBy { it.videoId } // duplicate ids from addon metadata would crash the list
                 val listState = rememberLazyListState()
                 val targetIndex = remember(filteredEpisodes) {
                     val currentIndex = filteredEpisodes.indexOfFirst { it.isCurrent }

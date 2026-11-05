@@ -125,7 +125,8 @@ fun PosterShelf(
                 }
 
                 else -> {
-                    items(shelf.items, key = { "${it.type}-${it.id}" }, contentType = { "poster" }) { item ->
+                    // Addon catalogs can repeat an item; duplicate keys would crash the LazyRow.
+                    items(shelf.items.distinctBy { "${it.type}-${it.id}" }, key = { "${it.type}-${it.id}" }, contentType = { "poster" }) { item ->
                         PosterTile(
                             item = item,
                             mode = mode,
