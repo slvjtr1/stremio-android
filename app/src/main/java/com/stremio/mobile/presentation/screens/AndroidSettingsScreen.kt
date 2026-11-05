@@ -88,7 +88,7 @@ fun AndroidSettingsScreen(
             title = "Share Diagnostics & Analytics",
             checked = isAnalyticsEnabled,
             onCheckedChange = onSetAnalyticsEnabled,
-            description = "Help improve the app by sharing anonymous crash reports and usage statistics"
+            description = "Only applies to builds compiled with an analytics key; release builds collect nothing"
         )
 
         SettingsClickRow(

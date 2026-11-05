@@ -258,23 +258,23 @@ jobs:
 
           mapping_path="app/build/outputs/mapping/release/mapping.txt"
           if [[ -f "${mapping_path}" ]]; then
-            cp "${mapping_path}" "dist/StremioMobile-v${VERSION_NAME}-mapping.txt"
+            cp "${mapping_path}" "dist/StremioEnhanced-v${VERSION_NAME}-mapping.txt"
           fi
 
       - name: Verify release assets
         shell: bash
         run: |
-          test -f "dist/StremioMobile-v${VERSION_NAME}-armeabi-v7a-release.apk"
-          test -f "dist/StremioMobile-v${VERSION_NAME}-arm64-v8a-release.apk"
-          test -f "dist/StremioMobile-v${VERSION_NAME}-x86-release.apk"
-          test -f "dist/StremioMobile-v${VERSION_NAME}-x86_64-release.apk"
-          test -f "dist/StremioMobile-v${VERSION_NAME}-universal-release.apk"
-          test -f "dist/StremioMobile-v${VERSION_NAME}-SHA256SUMS.txt"
+          test -f "dist/StremioEnhanced-v${VERSION_NAME}-armeabi-v7a-release.apk"
+          test -f "dist/StremioEnhanced-v${VERSION_NAME}-arm64-v8a-release.apk"
+          test -f "dist/StremioEnhanced-v${VERSION_NAME}-x86-release.apk"
+          test -f "dist/StremioEnhanced-v${VERSION_NAME}-x86_64-release.apk"
+          test -f "dist/StremioEnhanced-v${VERSION_NAME}-universal-release.apk"
+          test -f "dist/StremioEnhanced-v${VERSION_NAME}-SHA256SUMS.txt"
 
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: stremio-mobile-release-${{ env.VERSION_NAME }}
+          name: stremio-enhanced-release-${{ env.VERSION_NAME }}
           path: dist/*
           if-no-files-found: error
 
@@ -285,7 +285,7 @@ jobs:
         run: |
           if ! gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
             gh release create "${RELEASE_TAG}" \
-              --title "StremioMobile ${VERSION_NAME}" \
+              --title "Stremio Enhanced ${VERSION_NAME}" \
               --notes "Automated APK release for ${VERSION_NAME}."
           fi
 

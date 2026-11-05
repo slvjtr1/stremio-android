@@ -220,7 +220,7 @@ fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
                     
                     PrivacyBulletPoint(
                         title = "1. Anonymous Analytics & Diagnostics",
-                        description = "We collect anonymous usage telemetry via PostHog and crash reports via Firebase Crashlytics to diagnose errors and optimize app performance."
+                        description = "Official Stremio Enhanced builds contain no analytics or crash-reporting service. Usage telemetry (PostHog) only exists in builds made with a PostHog key, and can be switched off."
                     )
                     PrivacyBulletPoint(
                         title = "2. Absolute PII Sanitization",

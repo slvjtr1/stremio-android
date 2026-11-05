@@ -70,7 +70,7 @@ def main():
         if not source.is_file():
             raise SystemExit(f"APK file not found for ABI {abi}: {source}")
 
-        destination = args.output_dir / f"StremioMobile-v{args.version_name}-{abi}-{args.build_type}.apk"
+        destination = args.output_dir / f"StremioEnhanced-v{args.version_name}-{abi}-{args.build_type}.apk"
         shutil.copy2(source, destination)
         copied[abi] = destination
         print(f"{abi}: {source} -> {destination}")
@@ -79,7 +79,7 @@ def main():
     if missing:
         raise SystemExit(f"missing required APK ABI outputs: {', '.join(sorted(missing))}")
 
-    checksum_path = args.output_dir / f"StremioMobile-v{args.version_name}-SHA256SUMS.txt"
+    checksum_path = args.output_dir / f"StremioEnhanced-v{args.version_name}-SHA256SUMS.txt"
     with checksum_path.open("w", encoding="utf-8", newline="\n") as checksum_file:
         for abi in sorted(copied):
             path = copied[abi]
