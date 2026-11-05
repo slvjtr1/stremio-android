@@ -1,5 +1,10 @@
 package com.stremio.mobile.presentation.screens
 
+import com.stremio.mobile.data.repository.EnhancedSettings
+import com.stremio.mobile.player.subsync.SubtitleSyncStatus
+import com.stremio.mobile.presentation.screens.player.SubtitleSyncPanel
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import android.os.Build
 import android.app.Activity
 import android.content.ClipData
@@ -127,6 +132,8 @@ fun PlayerScreen(
     glassHapticsEnabled: Boolean = true,
     hapticsIntensity: String = "Medium",
     liquidGlassTuning: LiquidGlassTuning = LiquidGlassTuning(),
+    enhancedSettings: EnhancedSettings = EnhancedSettings(),
+    onUpdateEnhancedSettings: ((EnhancedSettings) -> EnhancedSettings) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     BackHandler(onBack = onBack)
@@ -134,6 +141,13 @@ fun PlayerScreen(
     val runtimeStateHolder = player?.runtimeState?.collectAsState()
         ?: remember { mutableStateOf(PlayerRuntimeState()) }
     val runtimeState = runtimeStateHolder.value
+    val syncStatusFlow = remember(player) {
+        player?.subtitleSyncStatus ?: kotlinx.coroutines.flow.MutableStateFlow<SubtitleSyncStatus>(SubtitleSyncStatus.Off)
+    }
+    val subtitleSyncStatus by syncStatusFlow.collectAsState()
+    LaunchedEffect(player, enhancedSettings.autoSubtitleSync, enhancedSettings.subtitleDriftCorrection) {
+        player?.setSubtitleSyncPreferences(enhancedSettings.autoSubtitleSync, enhancedSettings.subtitleDriftCorrection)
+    }
     val initialSubtitlePrefs = remember { getSubtitlePrefs() }
     val initialStreamState = remember(activeUri, player) { getPlayerStreamState() }
 
@@ -200,6 +214,13 @@ fun PlayerScreen(
     var isMuted by remember { mutableStateOf(false) }
     val initialVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
     var lastVolume by remember { mutableIntStateOf(if (initialVol > 0) initialVol else (audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) * 0.3f).toInt()) }
+
+    val displayRefreshHost = activity as? com.stremio.mobile.core.display.DisplayRefreshHost
+    // Hand display-mode control to playback while the player is open; restore the UI preference after.
+    DisposableEffect(displayRefreshHost) {
+        displayRefreshHost?.displayRefresh?.setPlayback(active = true, modeId = 0)
+        onDispose { displayRefreshHost?.displayRefresh?.setPlayback(active = false) }
+    }
 
     // Orientation & Status Bar visibility management
     DisposableEffect(activity) {
@@ -413,13 +434,8 @@ fun PlayerScreen(
         val currentActivity = activity ?: return@LaunchedEffect
         val strategy = profileSettings?.frameRateMatchingStrategy ?: com.stremio.core.types.profile.Profile.FrameRateMatchingStrategy.DISABLED
         if (strategy == com.stremio.core.types.profile.Profile.FrameRateMatchingStrategy.DISABLED) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                currentActivity.window?.let { window ->
-                    window.attributes = window.attributes.apply {
-                        preferredDisplayModeId = 0
-                    }
-                }
-            }
+            // No explicit mode: the system and ExoPlayer's Surface frame-rate hints decide.
+            displayRefreshHost?.displayRefresh?.setPlayback(active = true, modeId = 0)
             return@LaunchedEffect
         }
 
@@ -478,13 +494,7 @@ fun PlayerScreen(
             }
 
             bestMode?.let { matchedMode ->
-                if (matchedMode.modeId != activeMode.modeId) {
-                    currentActivity.window?.let { window ->
-                        window.attributes = window.attributes.apply {
-                            preferredDisplayModeId = matchedMode.modeId
-                        }
-                    }
-                }
+                displayRefreshHost?.displayRefresh?.setPlayback(active = true, modeId = matchedMode.modeId)
             }
         }
     }
@@ -910,6 +920,8 @@ fun PlayerScreen(
                     video = nextVideo,
                     onPlayNext = onPlayNext,
                     onDismiss = onDismissNextVideoPopup,
+                    hideArtwork = profileSettings?.hideSpoilers == true,
+                    spoilerBlurLevel = enhancedSettings.spoilerBlurLevel,
                 )
             }
         }
@@ -959,6 +971,12 @@ fun PlayerScreen(
                 subtitleDelayMs = delay
                 onSubtitleStyleChanged(subtitleStyle.copy(delayMs = delay))
             },
+            syncStatus = subtitleSyncStatus,
+            autoSync = enhancedSettings.autoSubtitleSync,
+            driftCorrection = enhancedSettings.subtitleDriftCorrection,
+            onAutoSyncChange = { enabled -> onUpdateEnhancedSettings { it.copy(autoSubtitleSync = enabled) } },
+            onDriftCorrectionChange = { enabled -> onUpdateEnhancedSettings { it.copy(subtitleDriftCorrection = enabled) } },
+            onResetSync = { player?.resetSubtitleSync() },
             onImportLocalSubtitle = {
                 localSubtitleLauncher.launch(
                     arrayOf(
@@ -1013,6 +1031,9 @@ fun NextEpisodePopup(
     video: com.stremio.core.types.resource.Video,
     onPlayNext: () -> Unit,
     onDismiss: () -> Unit,
+    hideArtwork: Boolean = false,
+    spoilerBlurLevel: com.stremio.mobile.presentation.components.SpoilerBlurLevel =
+        com.stremio.mobile.presentation.components.SpoilerBlurLevel.MEDIUM,
 ) {
     Row(
         modifier = Modifier
@@ -1030,12 +1051,12 @@ fun NextEpisodePopup(
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color(0xFF1A1A26)),
         ) {
-            if (video.thumbnail != null) {
-                AsyncImage(
-                    model = video.thumbnail,
-                    contentDescription = null,
+            video.thumbnail?.let { thumbnail ->
+                com.stremio.mobile.presentation.components.SpoilerArtwork(
+                    url = thumbnail,
+                    hidden = hideArtwork,
+                    level = spoilerBlurLevel,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
                 )
             }
         }
@@ -1136,6 +1157,12 @@ fun WebSubtitlesDialog(
     onSubtitleSizeChange: (Int) -> Unit,
     onSubtitleOffsetChange: (Int) -> Unit,
     onSubtitleDelayChange: (Long) -> Unit,
+    syncStatus: SubtitleSyncStatus = SubtitleSyncStatus.Off,
+    autoSync: Boolean = false,
+    driftCorrection: Boolean = false,
+    onAutoSyncChange: (Boolean) -> Unit = {},
+    onDriftCorrectionChange: (Boolean) -> Unit = {},
+    onResetSync: () -> Unit = {},
     onImportLocalSubtitle: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -1301,7 +1328,9 @@ fun WebSubtitlesDialog(
                     }
 
                     Column(
-                        modifier = Modifier.width(210.dp),
+                        modifier = Modifier
+                            .width(210.dp)
+                            .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -1315,6 +1344,14 @@ fun WebSubtitlesDialog(
                             max = 10.0f,
                             formatValue = { String.format(java.util.Locale.US, if (it >= 0) "+%.2f" else "%.2f", it) },
                             onChange = { onSubtitleDelayChange((it * 1000).roundToLong()) }
+                        )
+                        SubtitleSyncPanel(
+                            status = syncStatus,
+                            autoSync = autoSync,
+                            driftCorrection = driftCorrection,
+                            onAutoSyncChange = onAutoSyncChange,
+                            onDriftCorrectionChange = onDriftCorrectionChange,
+                            onReset = onResetSync,
                         )
                         Stepper(
                             label = "SIZE",

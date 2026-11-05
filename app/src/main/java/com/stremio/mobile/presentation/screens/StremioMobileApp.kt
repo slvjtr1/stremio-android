@@ -1,5 +1,8 @@
 package com.stremio.mobile.presentation.screens
 
+import com.stremio.mobile.presentation.components.HeroBanner
+import com.stremio.mobile.presentation.components.rememberSystemReducedMotion
+import com.stremio.mobile.presentation.hero.HeroSelector
 import android.content.Context
 import android.app.Activity
 import androidx.compose.ui.platform.LocalContext
@@ -86,6 +89,7 @@ fun StremioMobileApp(viewModel: MainViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val streamsState by viewModel.streamsState.collectAsStateWithLifecycle()
     val isPlayerOpen by viewModel.isPlayerOpen.collectAsStateWithLifecycle()
+    val enhancedSettings by viewModel.enhancedSettings.collectAsStateWithLifecycle()
     val rootGlobalTheme = remember(
         state.globalUiStyle,
         state.glassEffectsMode,
@@ -171,6 +175,8 @@ fun StremioMobileApp(viewModel: MainViewModel) {
                     onDownloadAndInstallUpdate = viewModel::downloadAndInstallUpdate,
                     onInstallDownloadedUpdate = viewModel::installDownloadedUpdate,
                     onIgnoreUpdate = viewModel::ignoreUpdate,
+                    enhancedSettings = enhancedSettings,
+                    onUpdateEnhancedSettings = viewModel::updateEnhancedSettings,
                 )
             } else {
                 AuthFlow(
@@ -274,6 +280,8 @@ fun StremioMobileApp(viewModel: MainViewModel) {
                     onSelectSeason = viewModel::selectSeason,
                     onSelectProvider = viewModel::selectStreamProvider,
                     onSelectSortCriterion = viewModel::selectStreamSortCriterion,
+                    hideSpoilers = state.profileSettings?.hideSpoilers == true,
+                    spoilerBlurLevel = enhancedSettings.spoilerBlurLevel,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -565,6 +573,8 @@ fun StremioMobileApp(viewModel: MainViewModel) {
                     glassHapticsEnabled = state.glassHapticsEnabled,
                     hapticsIntensity = state.hapticsIntensity,
                     liquidGlassTuning = state.liquidGlassTuning,
+                    enhancedSettings = enhancedSettings,
+                    onUpdateEnhancedSettings = viewModel::updateEnhancedSettings,
                 )
             }
 
@@ -588,7 +598,7 @@ fun StremioMobileApp(viewModel: MainViewModel) {
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 Text(
-                                    text = "To help us improve stability and resolve errors, this open-source client collects anonymous crash reports (via Firebase Crashlytics) and usage metrics (via PostHog).",
+                                    text = "Stremio Enhanced release builds do not include crash reporting or analytics. Builds compiled with a PostHog key can send anonymous usage metrics, which you can switch off below.",
                                     color = Color.White,
                                     fontSize = 13.sp,
                                     lineHeight = 18.sp
@@ -699,6 +709,8 @@ private fun BoardScreen(
     onDownloadAndInstallUpdate: (UpdateInfo) -> Unit,
     onInstallDownloadedUpdate: (File) -> Unit,
     onIgnoreUpdate: (String) -> Unit,
+    enhancedSettings: com.stremio.mobile.data.repository.EnhancedSettings,
+    onUpdateEnhancedSettings: ((com.stremio.mobile.data.repository.EnhancedSettings) -> com.stremio.mobile.data.repository.EnhancedSettings) -> Unit,
 ) {
     var settingsSubScreen by rememberSaveable { mutableStateOf(SettingsSubScreen.Main) }
 
@@ -756,6 +768,17 @@ private fun BoardScreen(
     }
 
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val boardListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val reducedMotion = enhancedSettings.reduceMotion || rememberSystemReducedMotion()
+    val hostActivity = androidx.compose.ui.platform.LocalContext.current as? com.stremio.mobile.core.display.DisplayRefreshHost
+    val refreshRatesLabel = remember(hostActivity) { hostActivity?.displayRefresh?.supportedRatesLabel() }
+    val featuredItems = remember(state.boardShelves, state.continueWatching.items) {
+        HeroSelector.select(
+            shelves = state.boardShelves,
+            continueWatchingIds = state.continueWatching.items.mapTo(HashSet()) { it.id },
+            seed = java.time.LocalDate.now().toEpochDay(),
+        )
+    }
     val isAddonsSettingsPage = state.selectedSection == MainSection.Settings &&
             settingsSubScreen == SettingsSubScreen.Addons
     CompositionLocalProvider(
@@ -774,6 +797,7 @@ private fun BoardScreen(
             }
 
             LazyColumn(
+                state = boardListState,
                 modifier = Modifier
                     .fillMaxSize()
                     .then(if (contentBackdrop != null) Modifier.layerBackdrop(contentBackdrop) else Modifier)
@@ -788,12 +812,20 @@ private fun BoardScreen(
             }
             when (state.selectedSection) {
                 MainSection.Home -> {
-                    val featuredItems = state.boardShelves.firstOrNull()?.items?.take(5) ?: emptyList()
                     if (featuredItems.isNotEmpty()) {
-                        item(contentType = "hero") {
-                            FeaturedHeroPager(
+                        item(key = "hero", contentType = "hero") {
+                            HeroBanner(
                                 items = featuredItems,
-                                onClick = { item -> onOpenDetails(item) },
+                                onWatch = onOpenStreams,
+                                onMoreInfo = onOpenDetails,
+                                reducedMotion = reducedMotion,
+                                scrollOffsetPx = {
+                                    when {
+                                        boardListState.firstVisibleItemIndex < 1 -> 0
+                                        boardListState.firstVisibleItemIndex == 1 -> boardListState.firstVisibleItemScrollOffset
+                                        else -> Int.MAX_VALUE
+                                    }
+                                },
                             )
                         }
                     }
@@ -996,6 +1028,9 @@ private fun BoardScreen(
                         SettingsSubScreen.Interface -> {
                             item {
                                 InterfaceSettingsScreen(
+                                    enhancedSettings = enhancedSettings,
+                                    onUpdateEnhancedSettings = onUpdateEnhancedSettings,
+                                    supportedRefreshRates = refreshRatesLabel,
                                     settings = state.profileSettings,
                                     globalUiStyle = state.globalUiStyle,
                                     glassEffectsMode = state.glassEffectsMode,
@@ -1020,6 +1055,8 @@ private fun BoardScreen(
                         SettingsSubScreen.Player -> {
                             item {
                                 PlayerSettingsScreen(
+                                    enhancedSettings = enhancedSettings,
+                                    onUpdateEnhancedSettings = onUpdateEnhancedSettings,
                                     settings = state.profileSettings,
                                     playerUiStyle = state.playerUiStyle,
                                     onSetPlayerUiStyle = onSetPlayerUiStyle,

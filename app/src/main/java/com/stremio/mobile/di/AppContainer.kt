@@ -33,6 +33,7 @@ class AppContainer(context: Context) {
     val playbackRepository = PlaybackRepository(core, playbackManager)
     val updateRepository = UpdateRepository(context.applicationContext)
     val apkInstaller = ApkInstaller(context.applicationContext)
+    val enhancedPreferences = com.stremio.mobile.data.repository.EnhancedPreferences(context.applicationContext)
 
     val serverController: StreamingServerController = try {
         JniStreamingServerController(context, useForegroundService = { authRepository.isServerInForeground() })

@@ -1,5 +1,8 @@
 package com.stremio.mobile.presentation.screens
 
+import com.stremio.mobile.core.display.RefreshRatePreference
+import com.stremio.mobile.data.repository.EnhancedSettings
+import com.stremio.mobile.presentation.components.SpoilerBlurLevel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -31,7 +34,10 @@ fun InterfaceSettingsScreen(
     onSetHapticsIntensity: (String) -> Unit,
     onSetSelectedFont: (AppFont) -> Unit,
     onNavigateToLiquidGlassLab: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    enhancedSettings: EnhancedSettings = EnhancedSettings(),
+    onUpdateEnhancedSettings: ((EnhancedSettings) -> EnhancedSettings) -> Unit = {},
+    supportedRefreshRates: String? = null,
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 16.dp),
@@ -136,6 +142,37 @@ fun InterfaceSettingsScreen(
             )
 
             Text(
+                text = "MOTION & DISPLAY",
+                color = MutedText,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+            )
+
+            SettingsDropdownRow(
+                title = "Refresh Rate",
+                selectedValue = enhancedSettings.refreshRate,
+                options = listOf(
+                    RefreshRatePreference.HIGH to "Highest available",
+                    RefreshRatePreference.SYSTEM to "System default",
+                    RefreshRatePreference.STANDARD to "Standard (60 Hz, saves battery)",
+                ),
+                onSelect = { pref -> onUpdateEnhancedSettings { it.copy(refreshRate = pref) } },
+                description = buildString {
+                    append("Smoother scrolling and animations on 90/120/144 Hz screens. ")
+                    append("Video playback uses its own frame-rate matching.")
+                    supportedRefreshRates?.let { append(" This display: ").append(it) }
+                },
+            )
+
+            SettingsToggleRow(
+                title = "Reduce Motion",
+                checked = enhancedSettings.reduceMotion,
+                onCheckedChange = { enabled -> onUpdateEnhancedSettings { it.copy(reduceMotion = enabled) } },
+                description = "Stop hero banner rotation, crossfades and parallax (also follows the system setting)"
+            )
+
+            Text(
                 text = "INTERFACE",
                 color = MutedText,
                 fontSize = 11.sp,
@@ -155,8 +192,21 @@ fun InterfaceSettingsScreen(
                 title = "Hide Spoilers",
                 checked = settings.hideSpoilers,
                 onCheckedChange = { onUpdateSettings(settings.copy(hideSpoilers = it)) },
-                description = "Blur unwatched movies and series episode posters"
+                description = "Blur artwork of episodes you have not watched yet (synced with your account)"
             )
+
+            if (settings.hideSpoilers) {
+                SettingsDropdownRow(
+                    title = "Spoiler Blur Strength",
+                    selectedValue = enhancedSettings.spoilerBlurLevel,
+                    options = listOf(
+                        SpoilerBlurLevel.LIGHT to "Light",
+                        SpoilerBlurLevel.MEDIUM to "Medium",
+                        SpoilerBlurLevel.STRONG to "Strong",
+                    ),
+                    onSelect = { level -> onUpdateEnhancedSettings { it.copy(spoilerBlurLevel = level) } },
+                )
+            }
 
             SettingsToggleRow(
                 title = "Gamepad Support",
