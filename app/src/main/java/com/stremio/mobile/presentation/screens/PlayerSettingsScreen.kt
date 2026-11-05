@@ -1,5 +1,6 @@
 package com.stremio.mobile.presentation.screens
 
+import com.stremio.mobile.data.repository.EnhancedSettings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -21,7 +22,9 @@ fun PlayerSettingsScreen(
     playerUiStyle: String,
     onSetPlayerUiStyle: (String) -> Unit,
     onUpdateSettings: (com.stremio.core.types.profile.Profile.Settings) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    enhancedSettings: EnhancedSettings = EnhancedSettings(),
+    onUpdateEnhancedSettings: ((EnhancedSettings) -> EnhancedSettings) -> Unit = {},
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 16.dp),
@@ -145,6 +148,22 @@ fun PlayerSettingsScreen(
                 options = colors,
                 onSelect = { onUpdateSettings(settings.copy(subtitlesOutlineColor = it)) }
             )
+
+            SettingsToggleRow(
+                title = "Automatic Subtitle Sync",
+                checked = enhancedSettings.autoSubtitleSync,
+                onCheckedChange = { enabled -> onUpdateEnhancedSettings { it.copy(autoSubtitleSync = enabled) } },
+                description = "Matches subtitle timing to detected speech (ExoPlayer with addon or imported subtitle files). Applied only when the match is confident."
+            )
+
+            if (enhancedSettings.autoSubtitleSync) {
+                SettingsToggleRow(
+                    title = "Drift Correction",
+                    checked = enhancedSettings.subtitleDriftCorrection,
+                    onCheckedChange = { enabled -> onUpdateEnhancedSettings { it.copy(subtitleDriftCorrection = enabled) } },
+                    description = "Also corrects subtitles that slowly fall out of sync, such as frame-rate mismatches"
+                )
+            }
 
             SettingsToggleRow(
                 title = "ASS subtitles styling",

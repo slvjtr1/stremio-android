@@ -227,7 +227,7 @@ class UpdateRepository(private val context: Context) {
     )
 
     companion object {
-        private const val LATEST_RELEASE_URL = "https://api.github.com/repos/perpetus/stremio-android/releases/latest"
+        private const val LATEST_RELEASE_URL = "https://api.github.com/repos/slvjtr1/stremio-android/releases/latest"
         private val SEMVER_REGEX = Regex("""\d+\.\d+\.\d+""")
     }
 }

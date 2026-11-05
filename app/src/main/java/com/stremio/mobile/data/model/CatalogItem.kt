@@ -14,4 +14,7 @@ data class CatalogItem(
     val remainingEpisodes: Int? = null,
     val continueWatchingVideoId: String? = null,
     val isContinueWatching: Boolean = false,
+    val description: String? = null,
+    val logo: String? = null,
+    val genres: List<String> = emptyList(),
 )

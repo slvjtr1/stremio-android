@@ -3,6 +3,9 @@ package com.stremio.mobile.player
 import android.content.Context
 import android.net.Uri
 import android.view.View
+import com.stremio.mobile.player.subsync.SubtitleSyncStatus
+import com.stremio.mobile.player.subsync.SubtitleTimeMap
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -114,4 +117,19 @@ interface Player {
     fun addExternalSubtitleTracks(tracks: List<ExternalSubtitle>)
     fun addLocalSubtitle(track: ExternalSubtitle)
     fun release()
+
+    /** Automatic subtitle synchronisation state for the selected subtitle track. */
+    val subtitleSyncStatus: StateFlow<SubtitleSyncStatus> get() = UNSUPPORTED_SYNC
+
+    /** Mapping currently applied to subtitle timing (manual + automatic). */
+    val subtitleTimeMap: StateFlow<SubtitleTimeMap> get() = IDENTITY_MAP
+
+    fun setSubtitleSyncPreferences(autoSync: Boolean, driftCorrection: Boolean) = Unit
+
+    /** Drops the automatic correction (keeps the manual delay) and starts listening again. */
+    fun resetSubtitleSync() = Unit
 }
+
+private val UNSUPPORTED_SYNC: StateFlow<SubtitleSyncStatus> =
+    MutableStateFlow(SubtitleSyncStatus.Unavailable("Automatic sync is available with the ExoPlayer engine"))
+private val IDENTITY_MAP: StateFlow<SubtitleTimeMap> = MutableStateFlow(SubtitleTimeMap())

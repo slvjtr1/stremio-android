@@ -12,11 +12,22 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.stremio.mobile.auth.FacebookLoginBridge
+import com.stremio.mobile.core.display.DisplayRefreshController
+import com.stremio.mobile.core.display.DisplayRefreshHost
+import com.stremio.mobile.core.display.PictureInPictureController
+import com.stremio.mobile.core.display.PictureInPictureHost
+import kotlinx.coroutines.launch
 import com.stremio.mobile.presentation.screens.StremioMobileApp
 import com.stremio.mobile.presentation.viewmodel.MainViewModel
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), DisplayRefreshHost, PictureInPictureHost {
+    override val displayRefresh by lazy { DisplayRefreshController(this) }
+    override val pictureInPicture by lazy { PictureInPictureController(this) }
+
     private val notificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { }
@@ -36,6 +47,7 @@ class MainActivity : ComponentActivity() {
                     apkInstaller = app.container.apkInstaller,
                     serverController = app.container.serverController,
                     core = app.container.core,
+                    enhancedPreferences = app.container.enhancedPreferences,
                     appContext = app.applicationContext,
                 ) as T
             }
@@ -51,6 +63,11 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         requestNotificationPermission()
         viewModel.acceptIntent(intent)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.enhancedSettings.collect { displayRefresh.setUiPreference(it.refreshRate) }
+            }
+        }
 
         setContent {
             StremioMobileApp(viewModel = viewModel)
@@ -69,6 +86,25 @@ class MainActivity : ComponentActivity() {
             return
         }
         super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        pictureInPicture.onUserLeaveHint()
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: android.content.res.Configuration,
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        pictureInPicture.onModeChanged(isInPictureInPictureMode)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // The display mode may have changed while we were away (resolution setting, external display).
+        displayRefresh.apply()
     }
 
     override fun onStart() {

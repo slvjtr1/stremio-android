@@ -33,10 +33,13 @@ class AppContainer(context: Context) {
     val playbackRepository = PlaybackRepository(core, playbackManager)
     val updateRepository = UpdateRepository(context.applicationContext)
     val apkInstaller = ApkInstaller(context.applicationContext)
+    val enhancedPreferences = com.stremio.mobile.data.repository.EnhancedPreferences(context.applicationContext)
 
     val serverController: StreamingServerController = try {
         JniStreamingServerController(context, useForegroundService = { authRepository.isServerInForeground() })
-    } catch (e: UnsatisfiedLinkError) {
+    } catch (e: LinkageError) {
+        // UnsatisfiedLinkError, or ExceptionInInitializerError/NoClassDefFoundError when the
+        // library fails inside the class initializer (e.g. builds without libstream_server.so).
         Timber.e(e, "Failed to load stream_server JNI, falling back to Stub")
         StubStreamingServerController()
     }

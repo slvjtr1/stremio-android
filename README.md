@@ -1,266 +1,94 @@
-# Stremio Mobile for Android - Kotlin, Jetpack Compose, ExoPlayer and MPV
+# Stremio Enhanced for Android
 
-Native Android client for Stremio built with Kotlin, Jetpack Compose, Kotlin Multiplatform, ExoPlayer, MPV, and a Rust-powered local streaming server.
+An unofficial, community-built Android client for the Stremio ecosystem — Kotlin, Jetpack Compose, ExoPlayer/Media3 and MPV — focused on a polished interface and smarter playback.
 
-[![Android CI](https://github.com/perpetus/stremio-android/actions/workflows/android-ci.yml/badge.svg)](https://github.com/perpetus/stremio-android/actions/workflows/android-ci.yml)
-[![Release APK](https://github.com/perpetus/stremio-android/actions/workflows/release-apk.yml/badge.svg)](https://github.com/perpetus/stremio-android/actions/workflows/release-apk.yml)
+[![Android CI](https://github.com/slvjtr1/stremio-android/actions/workflows/android-ci.yml/badge.svg?branch=feature/stremio-enhanced)](https://github.com/slvjtr1/stremio-android/actions/workflows/android-ci.yml)
 
 > [!WARNING]
-> This is a community Android client, not the official Stremio app. It is under active development, with signed APKs, CI builds, and ongoing fixes published in this repository.
+> Stremio Enhanced is **not** the official Stremio app and is not affiliated with or endorsed by Stremio. It uses the open-source Stremio core, so your Stremio account, library, add-ons and Continue Watching work as usual. It is based on [stremio-native/stremio-android](https://github.com/stremio-native/stremio-android).
 
-## Overview
+## Highlights
 
-Stremio Mobile is an open-source Android streaming app focused on bringing a modern native Stremio experience to phones and tablets. It combines the Stremio addon ecosystem with a Compose-first Android UI, local torrent/HTTP streaming, selectable internal players, web-parity subtitle and audio controls, and a configurable Liquid Glass interface.
+### Automatic subtitle synchronisation
+Pick an add-on or imported subtitle and Stremio Enhanced lines it up with the dialogue by itself.
 
-This repository is useful for developers searching for:
+- Listens to the audio being played (on-device, no AI model, no upload) and matches detected speech against the subtitle timing.
+- Fixes **constant offsets** (subtitles always early or late) after about a minute of audio.
+- Fixes **progressive drift** — subtitles that slowly fall behind, typically from a 23.976 vs 25 fps release — by correcting the time scale, not just the delay.
+- Only applies a correction when the match is statistically clear; otherwise it says so and leaves the timing alone.
+- The subtitle menu shows the status, the current correction, and lets you reset it or switch off drift correction. Your manual delay always stays in effect on top.
+- Works with SubRip, WebVTT, SSA/ASS and TTML files on the ExoPlayer engine. Manual delay now also works with ExoPlayer.
 
-- Stremio Android Kotlin client
-- Jetpack Compose streaming app
-- Android ExoPlayer and MPV playback backend
-- Stremio addon browser for Android
-- Kotlin Multiplatform Android media app
-- Rust JNI streaming server Android app
-- Liquid Glass Android UI components
+### Home Hero Banner
+A large cinematic banner with backdrop crossfades, title logo, rating, year, genres and synopsis, plus **Watch now** and **More info**. It mixes your first catalogs, skips titles you have already watched or are watching, preloads the next image, supports swiping, and pauses when the app is in the background. With *Reduce motion* (in the app or Android's accessibility settings) it stays still.
 
-## Why Use This Instead of the Official App?
+### Spoiler protection
+Turn on **Hide Spoilers** (synced with your Stremio account) and thumbnails of episodes you have not watched yet are blurred — in the episode list and in the next-episode popup. Titles and navigation stay readable. Choose light, medium or strong blur.
 
-This project is built for users who want a transparent, performance-focused Android Stremio experience with more local control than the standard app.
+### Smooth on high-refresh displays
+Choose *Highest available* (90/120/144 Hz where the screen supports it), *System default*, or *Standard 60 Hz* to save battery. During playback the player's frame-rate matching takes over, and your choice is restored when you leave the player.
 
-| Area | What this app focuses on |
-|---|---|
-| **Official Stremio compatibility** | Uses the Stremio core through the Kotlin/JNI core bridge for account, addons, catalogs, library, meta details, streams, player state, and sync behavior. The app replaces the Android interface and local streaming layer, not the Stremio addon ecosystem. |
-| **Interface speed** | Native Kotlin/Compose screens with a low-cost Classic UI and configurable Liquid Glass modes, including a Performance mode for lower-end phones. |
-| **Streaming performance** | A bundled Rust [`stream-server`](https://github.com/perpetus/stream-server) integrated through JNI for local torrent/HTTP streaming instead of a Node.js-style local server runtime on Android. |
-| **Memory use** | The stream-server project documents an approximate `~50MB` memory profile compared with `~200MB+` for Stremio `server.js`, with native Rust performance as the design goal. |
-| **Seeking and downloads** | stream-server supports HTTP range requests for instant seeking, HLS transcoding, torrent stats, archive streaming, subtitle extraction, and video probing. |
-| **Anime and advanced subtitles** | MPV can be selected as an internal player, with ASS subtitle styling controls, subtitle delay/size/position, local subtitle import, and web-parity subtitle language/variant menus. |
-| **Transparency** | The Android app, release workflow, native packaging, MPV wrapper, and streaming server integration are developed in public repositories. GitHub Releases publish signed APKs plus SHA256 checksums. |
+### Picture-in-picture
+Leave the app while a video plays and it continues in a floating window (automatically on Android 12+).
 
-The official app is the official support channel. This app is the open-source, native Android alternative for users who want the Stremio core and addon ecosystem behind a faster-moving Android UI, a Rust-powered local streaming engine, selectable ExoPlayer/MPV playback, richer subtitle controls, and APKs that can be inspected from source to release.
+### Everything from the original client
+Stremio account and sync, add-on catalog and management, Discover, Library, Continue Watching with stream memory, ExoPlayer and MPV engines, audio/subtitle language preferences, subtitle styling, gestures, local torrent/HTTP streaming through the bundled Rust stream server, and Classic or Liquid Glass styles with a performance mode.
 
-## Screenshot
+## Playback engines
 
-<p align="center">
-  <img src="screenshot.png" alt="Stremio Mobile Android app home screen with Jetpack Compose UI" width="360"/>
-</p>
+| | ExoPlayer (default) | MPV |
+|---|---|---|
+| Decoding | Hardware (MediaCodec) with software fallback | FFmpeg software and hardware |
+| Typical codecs | H.264, H.265/HEVC, VP9, AV1\*, AAC, Opus, FLAC, AC-3/E-AC-3\* | Nearly everything FFmpeg decodes |
+| Subtitle files | SRT, VTT, SSA/ASS, TTML | All, with full libass rendering |
+| Automatic subtitle sync | Yes | No (manual delay only) |
 
-## Features
+\* Depends on the device's decoders. HDR and passthrough formats (AC-3, E-AC-3, DTS) depend on hardware and the connected audio output. No player can promise universal codec support.
 
-- **Native Android UI** built with Kotlin and Jetpack Compose.
-- **Stremio core integration** through the Kotlin/JNI core bridge for account, addon, catalog, library, meta, stream, and player state compatibility.
-- **Stremio account integration** for synced library, addons, profile settings, and continue watching.
-- **Addon discovery and detail pages** for browsing, installing, and managing Stremio addons.
-- **Stream selection and playback** for direct HTTP streams and local streaming-server URLs.
-- **Dual internal player backends** with ExoPlayer as default and MPV as an optional internal player.
-- **Vendored MPV Android library** under `third_party/mpv-android-lib` with supported `armeabi-v7a`, `arm64-v8a`, `x86`, and `x86_64` native outputs.
-- **Web-parity audio and subtitle controls** including language defaults, subtitle variants, local subtitle import, styling, delay, size, and position controls.
-- **Continue watching resume flow** with remembered stream selection for streams previously played on the device.
-- **Modern Liquid Glass interface** with global classic/modern UI style, configurable glass performance mode, adaptive contrast, haptics, sliders, toggles, and a Liquid Glass Lab.
-- **Rust local streaming server integration** through JNI for high-performance streaming support.
-- **Release APK automation** through GitHub Actions with signed APK publishing and SHA256 checksums.
+## Build
+
+Requirements: JDK 21 (also on `PATH`), Android SDK 37, NDK `29.0.13846066`, Git with submodules.
+
+```powershell
+git clone --recurse-submodules https://github.com/slvjtr1/stremio-android.git
+cd stremio-android
+.\gradlew :app:assembleDebug            # debug APKs
+.\gradlew :app:testDebugUnitTest        # unit + Robolectric Compose tests
+.\gradlew :app:lintDebug                # Android Lint
+.\gradlew :mpv-android-lib:assembleRelease :app:assembleRelease
+```
+
+The Rust stream server (`libstream_server.so`) is built by the release workflow. Local builds without it still run; torrent streaming is then unavailable and direct HTTP streams keep working. To build it locally see `.\gradlew compileNativeLibs` (Rust, `cargo-ndk` and vcpkg required).
+
+Release builds are unsigned unless these Gradle properties or environment variables are set: `ANDROID_KEYSTORE_FILE`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. The `release-apk.yml` workflow expects the same values as repository secrets (`ANDROID_RELEASE_KEYSTORE_BASE64` for the keystore) and publishes split APKs plus SHA-256 checksums to GitHub Releases.
+
+Official releases are signed with the Stremio Enhanced key, SHA-256 certificate fingerprint `92:A1:87:88:DB:C8:91:5E:5B:94:7A:AE:21:D6:92:31:71:D6:56:EA:87:98:C4:9A:15:22:2F:9C:1E:CF:91:56`. Check it with `apksigner verify --print-certs`.
+
+The application id is `io.github.slvjtr1.stremioenhanced`, so it installs next to other Stremio clients.
+
+## Privacy
+
+Builds from this repository send no analytics or crash reports: Firebase has been removed, and the bundled PostHog SDK stays inactive unless a `POSTHOG_API_KEY` is supplied at build time (it can then be switched off in *Settings → Android Settings*). Subtitle synchronisation runs entirely on the device. Stremio's own services and the add-ons you install have their own privacy practices.
 
 ## Architecture
 
 ```text
-StremioMobile
-|-- app/                              Android app module
-|   |-- player/                       Player abstraction, ExoPlayer backend, MPV backend
-|   |-- presentation/                 Jetpack Compose screens, Liquid Glass UI, player controls
-|   |-- data/                         Repositories and local app preferences
-|   |-- server/                       JNI streaming server controller
-|   `-- src/main/assets/              Language catalog and app assets
-|-- third_party/mpv-android-lib/       Vendored MPV Android library module
-|-- streamio-core-kotlin/              Kotlin Multiplatform Stremio core bridge submodule
-|-- stream-server/                    Rust streaming server submodule
-`-- .github/workflows/                Android CI and release APK workflows
+app/                       Android app (Compose UI, view model, repositories)
+  player/                  Backend-neutral Player API, ExoPlayer and MPV backends
+  player/subsync/          Speech detector, offset/drift engine, ExoPlayer subtitle renderer
+  core/display/            Refresh-rate and picture-in-picture controllers
+  presentation/            Screens and components (Hero Banner, spoiler artwork, player UI)
+third_party/mpv-android-lib/  Vendored mpv-android with prebuilt libmpv/FFmpeg
+streamio-core-kotlin/      Stremio core (Rust) Kotlin bindings — submodule
+stream-server/             Rust streaming server — submodule
 ```
 
-### Playback Stack
+Third-party components and their licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-The app exposes a backend-neutral player API and currently supports:
+## License
 
-- **ExoPlayer / Media3** for the default Android-native playback path.
-- **MPV** for users who prefer MPV behavior, track handling, and subtitle support.
-
-Player selection is controlled from app settings. Unknown or missing player values fall back to ExoPlayer.
-
-### UI Stack
-
-The app supports two global UI styles:
-
-- **Classic** - lower-cost Material-style interface.
-- **Modern (Liquid Glass)** - translucent glass surfaces powered by `com.kyant.backdrop`, adaptive contrast, haptics, and performance modes.
-
-The same global style is respected by settings rows, buttons, cards, toggles, sliders, chips, dropdowns, bottom navigation, and player controls.
-
-## Requirements
-
-- JDK 21
-- Android Studio or Android SDK command-line tools
-- Android SDK 37
-- Android NDK `29.0.13846066`
-- Git with submodule support
-- Optional for native rebuilds:
-  - Rust toolchain
-  - `cargo-ndk`
-  - vcpkg for Android OpenSSL dependencies
-
-## Clone
-
-```powershell
-git clone --recurse-submodules https://github.com/perpetus/stremio-android.git
-cd stremio-android
-```
-
-If the repository is already cloned:
-
-```powershell
-git submodule update --init --recursive
-```
-
-## Build
-
-Debug build:
-
-```powershell
-.\gradlew :app:assembleDebug
-```
-
-Install debug build on a connected Android device or emulator:
-
-```powershell
-.\gradlew :app:installDebug
-```
-
-Release build:
-
-```powershell
-.\gradlew :mpv-android-lib:assembleRelease :app:assembleRelease
-```
-
-Release builds produce ABI-specific APKs plus one universal APK:
-
-| APK | Device Target |
-|---|---|
-| `StremioMobile-vX.Y.Z-armeabi-v7a-release.apk` | Older 32-bit ARM Android devices |
-| `StremioMobile-vX.Y.Z-arm64-v8a-release.apk` | Modern Android phones/tablets |
-| `StremioMobile-vX.Y.Z-x86-release.apk` | 32-bit x86 emulator |
-| `StremioMobile-vX.Y.Z-x86_64-release.apk` | x86_64 emulator |
-| `StremioMobile-vX.Y.Z-universal-release.apk` | Fallback APK containing all supported ABIs |
-
-The local release APKs are unsigned unless release signing environment variables are provided.
-
-## Release Signing
-
-The app reads release signing values from Gradle properties or environment variables:
-
-```powershell
-$env:ANDROID_KEYSTORE_FILE="C:\Users\you\.android\stremio-mobile-release.jks"
-$env:ANDROID_KEYSTORE_PASSWORD="..."
-$env:ANDROID_KEY_ALIAS="stremio-mobile-release"
-$env:ANDROID_KEY_PASSWORD="..."
-```
-
-Then build or install release:
-
-```powershell
-.\gradlew :app:assembleRelease
-.\gradlew installRelease
-```
-
-If the device already has a build signed with a different key, uninstall first:
-
-```powershell
-adb uninstall com.stremio.mobile
-```
-
-## CI and APK Publishing
-
-GitHub Actions workflows are included:
-
-- `android-ci.yml` builds, verifies, and uploads debug APK artifacts for `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`, and universal output.
-- `android-pr-checks.yml` validates the Gradle wrapper, compiles debug Kotlin, and runs JVM unit tests for pull requests.
-- `android-nightly.yml` builds and uploads scheduled/manual debug APK artifacts for quick smoke testing.
-- `android-lint-diagnostics.yml` runs Android Lint manually and uploads reports without blocking the branch while the existing lint backlog is cleaned up.
-- `release-apk.yml` builds signed split APKs, generates SHA256 checksums, uploads mapping output, and publishes all assets to GitHub Releases.
-
-Required release secrets:
-
-- `ANDROID_RELEASE_KEYSTORE_BASE64`
-- `ANDROID_KEYSTORE_PASSWORD`
-- `ANDROID_KEY_ALIAS`
-- `ANDROID_KEY_PASSWORD`
-
-To create the base64 keystore secret from PowerShell:
-
-```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes($env:ANDROID_KEYSTORE_FILE))
-```
-
-## Native Libraries
-
-Prebuilt native outputs are committed for supported ABIs:
-
-- `armeabi-v7a`
-- `arm64-v8a`
-- `x86`
-- `x86_64`
-
-The universal APK contains all supported ABIs. ABI-specific APKs are smaller and should be preferred when the device architecture is known.
-
-The MPV module intentionally excludes `libc++_shared.so` and uses the app-packaged C++ runtime.
-
-Native rebuild helpers:
-
-```powershell
-.\gradlew compileNativeLibs
-```
-
-MPV native rebuilds are handled separately through:
-
-```bash
-third_party/mpv-android-lib/rebuild-native.sh
-```
-
-The MPV rebuild script is intended for Linux/macOS environments. stream-server native builds can be run per ABI through the Gradle `copyStreamServerJniLibs` helper; Gradle can run those native ABI tasks in parallel when invoked with `--parallel`.
-
-## Development Notes
-
-- Gradle build cache and configuration cache are enabled.
-- ExoPlayer remains the default player backend.
-- MPV support is vendored source plus native outputs, not a Maven runtime dependency.
-- The app targets Android package `com.stremio.mobile`.
-- Supported native ABIs are currently `armeabi-v7a`, `arm64-v8a`, `x86`, and `x86_64`.
-- The project is optimized for phone UI. TV/D-pad behavior is not the primary target.
-
-## Useful Commands
-
-```powershell
-# Fast Kotlin compile check
-.\gradlew :app:compileDebugKotlin
-
-# Debug APK
-.\gradlew :app:assembleDebug
-
-# Release APK
-.\gradlew :mpv-android-lib:assembleRelease :app:assembleRelease
-
-# Verify release APK metadata contains all ABI split outputs plus universal
-python .github/scripts/verify-apk-outputs.py app/build/outputs/apk/release armeabi-v7a arm64-v8a x86 x86_64 universal
-
-# Unit tests
-.\gradlew testDebugUnitTest
-
-# List install tasks
-.\gradlew tasks --all --console=plain
-```
-
-## Repository
-
-- Android app: https://github.com/perpetus/stremio-android
-- Stream server: https://github.com/perpetus/stream-server
-- Stremio core Kotlin fork: https://github.com/perpetus/stremio-core-kotlin
+Changes made in Stremio Enhanced are released under the [MIT License](LICENSE). The upstream project this fork is based on does not publish a license, so its original code is not covered by that grant. Bundled components keep their own licenses.
 
 ## Disclaimer
 
-This is an unofficial Android client experiment for Stremio-compatible workflows. It is not a replacement for the official Stremio apps and is provided for testing and development.
+Stremio is a trademark of its respective owner. This project is an independent client for the open Stremio add-on ecosystem; it does not host or provide content.

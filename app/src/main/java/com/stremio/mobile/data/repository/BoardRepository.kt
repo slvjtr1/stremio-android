@@ -37,9 +37,13 @@ class BoardRepository(private val core: StremioCore) {
                                 poster = item.poster,
                                 background = item.background,
                                 releaseInfo = item.releaseInfo,
-                                imdbRating = null,
+                                imdbRating = item.links.firstOrNull { it.category.equals("imdb", ignoreCase = true) }
+                                    ?.name?.takeIf { it.firstOrNull()?.isDigit() == true },
                                 inCinema = item.inCinema,
-                                watched = item.watched
+                                watched = item.watched,
+                                description = item.description,
+                                logo = item.logo,
+                                genres = item.links.filter { it.category.equals("Genres", ignoreCase = true) }.map { it.name },
                             )
                         }
                     }

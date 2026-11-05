@@ -1,5 +1,7 @@
 package com.stremio.mobile.presentation.screens
 
+import com.stremio.mobile.presentation.components.SpoilerArtwork
+import com.stremio.mobile.presentation.components.SpoilerBlurLevel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -71,6 +73,8 @@ fun StreamsSheet(
     onSelectSeason: (Int) -> Unit,
     onSelectProvider: (String?) -> Unit,
     onSelectSortCriterion: (StreamSortCriterion) -> Unit,
+    hideSpoilers: Boolean = false,
+    spoilerBlurLevel: SpoilerBlurLevel = SpoilerBlurLevel.MEDIUM,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -192,7 +196,7 @@ fun StreamsSheet(
                 // Episode list filtered by selected season
                 val filteredEpisodes = state.episodes.filter {
                     state.selectedSeason == null || it.season == state.selectedSeason
-                }
+                }.distinctBy { it.videoId } // duplicate ids from addon metadata would crash the list
                 val listState = rememberLazyListState()
                 val targetIndex = remember(filteredEpisodes) {
                     val currentIndex = filteredEpisodes.indexOfFirst { it.isCurrent }
@@ -220,6 +224,8 @@ fun StreamsSheet(
                     items(filteredEpisodes, key = { it.videoId }) { episode ->
                         EpisodeRow(
                             episode = episode,
+                            hideArtwork = hideSpoilers && !episode.watched && !episode.isCurrent,
+                            spoilerBlurLevel = spoilerBlurLevel,
                             onClick = { onSelectEpisode(episode) }
                         )
                     }
@@ -307,6 +313,8 @@ fun StreamsSheet(
 @Composable
 private fun EpisodeRow(
     episode: EpisodeOption,
+    hideArtwork: Boolean,
+    spoilerBlurLevel: SpoilerBlurLevel,
     onClick: () -> Unit,
 ) {
     ThemedCard(
@@ -329,10 +337,11 @@ private fun EpisodeRow(
                 .background(Color(0xFF202033)),
         ) {
             if (!episode.thumbnail.isNullOrBlank()) {
-                AsyncImage(
-                    model = episode.thumbnail,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
+                SpoilerArtwork(
+                    url = episode.thumbnail,
+                    hidden = hideArtwork,
+                    level = spoilerBlurLevel,
+                    contentDescription = if (hideArtwork) "Episode artwork hidden until watched" else null,
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {

@@ -63,9 +63,17 @@ class MainViewModel(
     private val apkInstaller: ApkInstaller,
     private val serverController: StreamingServerController,
     private val core: StremioCore,
+    private val enhancedPreferences: com.stremio.mobile.data.repository.EnhancedPreferences,
     appContext: Context,
 ) : ViewModel() {
     private val appContext = appContext.applicationContext
+
+    /** Device-local settings for Enhanced features; kept out of [uiState] so changes stay cheap. */
+    val enhancedSettings: StateFlow<com.stremio.mobile.data.repository.EnhancedSettings> = enhancedPreferences.settings
+
+    fun updateEnhancedSettings(transform: (com.stremio.mobile.data.repository.EnhancedSettings) -> com.stremio.mobile.data.repository.EnhancedSettings) {
+        enhancedPreferences.update(transform)
+    }
     private val latestIntentUri = MutableStateFlow<String?>(null)
     private val account = MutableStateFlow(authRepository.accountFromCore())
     private var authInFlight = false
@@ -317,7 +325,6 @@ class MainViewModel(
                     if (!email.isNullOrBlank()) {
                         val hashedEmail = sha256(email)
                         com.posthog.PostHog.identify(hashedEmail)
-                        com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setUserId(hashedEmail)
                     }
                 }
             }
@@ -368,10 +375,6 @@ class MainViewModel(
                     event = "Streaming Server State Changed",
                     properties = mapOf("new_state" to stateName)
                 )
-                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCustomKey("server_state", stateName)
-                if (state is StreamingServerState.Failed) {
-                    com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCustomKey("server_error", formatServerErrorMessage(state.message))
-                }
 
                 if (state is StreamingServerState.Ready) {
                     fetchStreamingServerSettingsDirectly()
@@ -630,8 +633,6 @@ class MainViewModel(
             com.posthog.PostHog.optOut()
         }
         
-        com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
-            .setCrashlyticsCollectionEnabled(enabled)
     }
 
     fun setAutoUpdateEnabled(enabled: Boolean) {
@@ -2001,7 +2002,6 @@ class MainViewModel(
         account.value = AccountUiState()
         refreshLibrary()
         com.posthog.PostHog.reset()
-        com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setUserId("")
     }
 
     fun clearAccountError() {

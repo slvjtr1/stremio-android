@@ -3,9 +3,6 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
-    id("com.google.gms.google-services")
-    id("com.google.firebase.crashlytics")
-    id("com.google.firebase.firebase-perf")
 }
 
 fun stringPropertyOrEnv(name: String): String? =
@@ -50,7 +47,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.stremio.mobile"
+        // Separate id so Stremio Enhanced installs side by side with other Stremio clients.
+        applicationId = "io.github.slvjtr1.stremioenhanced"
         minSdk = 24
         targetSdk = 37
         versionCode = stringPropertyOrEnv("VERSION_CODE")?.toIntOrNull() ?: 1
@@ -110,6 +108,10 @@ android {
         buildConfig = true
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
 
 }
 
@@ -149,12 +151,12 @@ dependencies {
     implementation("com.github.Stremio:stremio-core-kotlin:1.15.0")
     implementation("com.jakewharton.timber:timber:5.0.1")
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
-    implementation(platform("com.google.firebase:firebase-bom:34.15.0"))
-    implementation("com.google.firebase:firebase-analytics")
-    implementation("com.google.firebase:firebase-crashlytics")
-    implementation("com.google.firebase:firebase-perf")
     implementation("com.posthog:posthog-android:3.51.0")
     testImplementation("junit:junit:4.13.2")
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("org.robolectric:robolectric:4.16")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 data class StreamServerTarget(
     val taskSuffix: String,
