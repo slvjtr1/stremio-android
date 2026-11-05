@@ -17,7 +17,7 @@ object SubtitleFormats {
     }
 
     fun sniff(head: ByteArray): String? {
-        val text = String(head, 0, minOf(head.size, 512), Charsets.UTF_8).trimStart('﻿', ' ', '\r', '\n', '\t')
+        val text = String(head, 0, minOf(head.size, 512), Charsets.UTF_8).trimStart('\uFEFF', ' ', '\r', '\n', '\t')
         return when {
             text.startsWith("WEBVTT") -> MimeTypes.TEXT_VTT
             text.startsWith("[Script Info]", ignoreCase = true) -> MimeTypes.TEXT_SSA

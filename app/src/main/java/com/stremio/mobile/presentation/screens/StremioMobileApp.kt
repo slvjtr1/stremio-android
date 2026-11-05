@@ -776,7 +776,7 @@ private fun BoardScreen(
         HeroSelector.select(
             shelves = state.boardShelves,
             continueWatchingIds = state.continueWatching.items.mapTo(HashSet()) { it.id },
-            seed = java.time.LocalDate.now().toEpochDay(),
+            seed = System.currentTimeMillis() / 86_400_000L, // changes once per (UTC) day
         )
     }
     val isAddonsSettingsPage = state.selectedSection == MainSection.Settings &&

@@ -1,5 +1,7 @@
 package com.stremio.mobile.player
 
+import androidx.media3.common.util.UnstableApi
+import androidx.annotation.OptIn
 import android.content.Context
 import android.graphics.Color
 import android.net.Uri
@@ -34,6 +36,7 @@ import com.stremio.mobile.player.subsync.SubtitleSyncStatus
 import com.stremio.mobile.player.subsync.SubtitleTimeMap
 import java.util.Locale
 
+@OptIn(UnstableApi::class)
 class ExoStreamPlayer(
     context: Context,
     private val settings: com.stremio.core.types.profile.Profile.Settings? = null
